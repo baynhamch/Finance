@@ -1,5 +1,9 @@
 # **Relative Strength Index (RSI) Indicator Explained**
 
+![image](https://github.com/user-attachments/assets/57a104a0-a9e5-43f5-96bb-5cde6a5d7ea4)
+
+
+
 ## **Summary**
 Learn how to measure the magnitude of price changes using the **Relative Strength Index (RSI)** in just 11 minutes.
 
@@ -46,8 +50,8 @@ RSI = 100 - \left( \frac{100}{1 + \frac{(\text{Previous Average Gain} \times 13)
 ## **Plotting the RSI**
 The RSI is plotted **below the price chart** in trading platforms. It typically includes a **70 line (overbought)** and a **30 line (oversold)**.
 
-![RSI Trading Chart](https://example.com/rsi-trading.png)  
-*Example of RSI applied to a stock chart (TradingView)*
+![image](https://github.com/user-attachments/assets/4ca7f5f8-e88c-481c-9b9c-2ace0abd7422)
+
 
 ---
 
