@@ -2,11 +2,6 @@
 
 ![image](https://github.com/user-attachments/assets/57a104a0-a9e5-43f5-96bb-5cde6a5d7ea4)
 
-
-
-## **Summary**
-Learn how to measure the magnitude of price changes using the **Relative Strength Index (RSI)** in just 11 minutes.
-
 **Updated:** November 19, 2024
 
 ---
@@ -14,8 +9,7 @@ Learn how to measure the magnitude of price changes using the **Relative Strengt
 ## **What is the RSI Indicator?**
 The **Relative Strength Index (RSI)** is a **momentum oscillator** widely used in technical analysis of stocks and commodities. It helps traders identify changes in momentum and price direction.
 
-![RSI Indicator](https://example.com/rsi-chart.png)  
-*Image Credit: Investopedia / Julie Bang*
+
 
 ### **Key Takeaways**
 - Introduced in **1978** by **J. Welles Wilder Jr.**.
