@@ -249,4 +249,16 @@ message = f"{api_key}{current_timestamp}{path}{method}{body}"
 ### Example Signature
 
 The following is an example of a signature that corresponds to a cancel order request. You may use the example values below to ensure your code implementation is generating the same (x-signature) header signature value. The code snippet is for generating the signature in Python.
+
+
+| Field  | Value |
+| ------------- | ------------- |
+| Private Key  | xQnTJVeQLmw1/Mg2YimEViSpw/SdJcgNXZ5kQkAXNPU=  |
+| Public Key  |jPItx4TLjcnSUnmnXQQyAKL4eJj3+oWNNMmmm2vATqk=  |
+| API Key  | rh-api-6148effc-c0b1-486c-8940-a1d099456be6  |
+| Method  |  POST |
+| Path  | Content Cell  |
+| Public Key  | Content Cell  |
+| Public Key  | Content Cell  |
+| Public Key  | Content Cell  |
    
