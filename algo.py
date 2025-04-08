@@ -1,9 +1,81 @@
+# import pandas as pd
+# from webull import paper_webull
+# from sklearn.ensemble import RandomForestClassifier
+# from sklearn.model_selection import train_test_split
+# import json
+# import requests  # Optional: for sending signal to your app
+#
+# # ======== CONFIG ========
+# EMAIL = "your@email.com"
+# PASSWORD = "your_password"
+# TICKERS = ["AAPL", "TSLA", "NVDA"]
+# SEND_TO_APP = False  # Set to True when your API or Firebase is set up
+# APP_ENDPOINT = "https://your-app-endpoint.com/api/signal"  # placeholder
+# # =========================
+#
+# # ======== 1. Authenticate with Webull Paper =========
+# wb = paper_webull()
+# wb.login(EMAIL, PASSWORD)
+#
+# # ======== 2. Download historical stock data =========
+# def get_stock_data(ticker):
+#     candles = wb.get_bars(stock=ticker, interval='d', count=100)
+#     df = pd.DataFrame(candles)
+#     df['return'] = df['close'].pct_change()
+#     df['target'] = (df['return'].shift(-1) > 0).astype(int)  # Up = 1, Down = 0
+#     return df.dropna()
+#
+# # ======== 3. Train the prediction model =========
+# def train_model(df):
+#     features = ['open', 'high', 'low', 'close', 'volume']
+#     X = df[features]
+#     y = df['target']
+#     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2)
+#     model = RandomForestClassifier(n_estimators=100)
+#     model.fit(X_train, y_train)
+#     return model
+#
+# # ======== 4. Make prediction for latest row =========
+# def make_prediction(model, df):
+#     latest = df[['open', 'high', 'low', 'close', 'volume']].iloc[-1:]
+#     prediction = model.predict(latest)[0]
+#     return 'buy' if prediction == 1 else 'sell'
+#
+# # ======== 5. Optional: Send to App (e.g., Firebase or REST API) ========
+# def send_signal_to_app(ticker, signal):
+#     data = {
+#         "ticker": ticker,
+#         "signal": signal
+#     }
+#     try:
+#         response = requests.post(APP_ENDPOINT, json=data)
+#         if response.status_code == 200:
+#             print(f"Sent {ticker} signal to app.")
+#         else:
+#             print(f"Failed to send signal. Status: {response.status_code}")
+#     except Exception as e:
+#         print(f"Error sending signal: {e}")
+#
+# # ======== 6. Main execution loop =========
+# if __name__ == "__main__":
+#     for ticker in TICKERS:
+#         print(f"Processing {ticker}...")
+#         try:
+#             df = get_stock_data(ticker)
+#             model = train_model(df)
+#             signal = make_prediction(model, df)
+#             print(f"{ticker}: {signal.upper()}")
+#
+#             if SEND_TO_APP:
+#                 send_signal_to_app(ticker, signal)
+#         except Exception as e:
+#             print(f"Error processing {ticker}: {e}")
 import yfinance as yf
 import pandas as pd
 from datetime import datetime
 from sklearn.model_selection import train_test_split
 from sklearn.ensemble import RandomForestClassifier
-from twilio.rest import Client
+
 
 # Function to fetch stock data
 def fetch_stock_data(stocks):
@@ -94,6 +166,7 @@ def generate_signals(df):
 
     return df  # ✅ Ensure the function returns df
 
+# ---------------------------------------------Process Stock---------------------------------------------
 # Function to process stocks (apply indicators & signals)
 def process_stocks(df, stocks):
     """Apply indicators & generate signals for each stock."""
@@ -104,6 +177,7 @@ def process_stocks(df, stocks):
     return processed_data
 
 
+# ---------------------------------------------Machine Learning---------------------------------------------
 # Function to train ML model
 def train_ml_model(all_data):
     """Train a Random Forest model for stock predictions."""
@@ -121,112 +195,102 @@ def train_ml_model(all_data):
     return model, X
 
 
-# Function to predict buy/sell signals
-# def predict_trades(model, X, stocks, processed_data):
-#     """Predict Buy/Sell/Hold signals for each stock and provide reasoning."""
-#     latest_data = X.tail(len(stocks))  # Get latest data for all stocks
-#     predicted_signals = model.predict(latest_data)
-#
-#     trade_signals = {}  # Store trade decisions
-#     for stock, signal in zip(stocks, predicted_signals):
-#         stock_data = processed_data[stock].iloc[-1]  # Get latest row of indicators
-#
-#         # Determine reasoning
-#         if signal == 1:
-#             reason = f"SMA_20 ({stock_data['SMA_20']:.2f}) > SMA_50 ({stock_data['SMA_50']:.2f}) and RSI ({stock_data['RSI']:.2f}) < 30 (oversold)"
-#             trade_signals[stock] = f"📈 BUY Signal for {stock} - {reason}"
-#         else:
-#             reason = f"SMA_20 ({stock_data['SMA_20']:.2f}) <= SMA_50 ({stock_data['SMA_50']:.2f}) or RSI ({stock_data['RSI']:.2f}) > 30 (neutral/overbought)"
-#             trade_signals[stock] = f"📉 HOLD/SELL Signal for {stock} - {reason}"
-#
-#     return trade_signals
-
-# Function to predict buy/hold/sell signals
+# ---------------------------------------------PREDICT TRADES---------------------------------------------
 def predict_trades(model, X, stocks, processed_data):
-    """Predict Buy, Hold, or Sell signals for each stock and provide reasoning."""
+    """Predict Buy, Hold, or Sell signals for each stock and provide reasoning including price."""
     latest_data = X.tail(len(stocks))  # Get latest data for all stocks
     predicted_signals = model.predict(latest_data)
 
     trade_signals = {}  # Store trade decisions
     for stock, signal in zip(stocks, predicted_signals):
         stock_data = processed_data[stock].iloc[-1]  # Get latest row of indicators
+        current_price = stock_data['Close']
 
-        # Determine Buy, Hold, or Sell Reasoning
         if stock_data['Buy_Signal']:
-            reason = f"SMA_20 ({stock_data['SMA_20']:.2f}) > SMA_50 ({stock_data['SMA_50']:.2f}) and RSI ({stock_data['RSI']:.2f}) < 30 (oversold)"
+            reason = (
+                f"SMA_20 ({stock_data['SMA_20']:.2f}) > SMA_50 ({stock_data['SMA_50']:.2f}), "
+                f"RSI ({stock_data['RSI']:.2f}) < 30 → Buy Price: ${current_price:.2f}"
+            )
             trade_signals[stock] = f"📈 BUY Signal for {stock} - {reason}"
 
         elif stock_data['Sell_Signal']:
-            reason = f"SMA_20 ({stock_data['SMA_20']:.2f}) < SMA_50 ({stock_data['SMA_50']:.2f}) and RSI ({stock_data['RSI']:.2f}) > 70 (overbought)"
+            reason = (
+                f"SMA_20 ({stock_data['SMA_20']:.2f}) < SMA_50 ({stock_data['SMA_50']:.2f}), "
+                f"RSI ({stock_data['RSI']:.2f}) > 70 → Sell Price: ${current_price:.2f}"
+            )
             trade_signals[stock] = f"📉 SELL Signal for {stock} - {reason}"
 
         else:
-            reason = f"SMA_20 ({stock_data['SMA_20']:.2f}) and SMA_50 ({stock_data['SMA_50']:.2f}) show no clear trend, RSI ({stock_data['RSI']:.2f}) is neutral"
+            reason = (
+                f"SMA_20 ({stock_data['SMA_20']:.2f}) and SMA_50 ({stock_data['SMA_50']:.2f}) show no clear trend, "
+                f"RSI ({stock_data['RSI']:.2f}) is neutral → Current Price: ${current_price:.2f}"
+            )
             trade_signals[stock] = f"⚖️ HOLD Signal for {stock} - {reason}"
 
     return trade_signals
-def send_message(message_body, recipient_number, twilio_number, account_sid, auth_token):
-    """
-       Sends an SMS using Twilio API.
 
-       Parameters:
-       - message_body (str): The message to send.
-       - recipient_number (str): The phone number to send the message to.
-       - twilio_number (str): Your Twilio phone number.
-       - account_sid (str): Your Twilio Account SID.
-       - auth_token (str): Your Twilio Auth Token.
 
-       Returns:
-       - str: Message SID if successful.
-       """
-    try:
-        # Create Twilio client
-        client = Client(account_sid, auth_token)
-
-        # Send SMS
-        message = client.messages.create(
-            body=message_body,
-            from_=twilio_number,
-            to=recipient_number
-        )
-
-        print(f"✅ SMS sent successfully! Message SID: {message.sid}")
-        return message.sid
-
-    except Exception as e:
-        print(f"❌ Failed to send SMS: {e}")
-        return None
-
+# def send_message(message_body, recipient_number, twilio_number, account_sid, auth_token):
+#     """
+#        Sends an SMS using Twilio API.
+#
+#        Parameters:
+#        - message_body (str): The message to send.
+#        - recipient_number (str): The phone number to send the message to.
+#        - twilio_number (str): Your Twilio phone number.
+#        - account_sid (str): Your Twilio Account SID.
+#        - auth_token (str): Your Twilio Auth Token.
+#
+#        Returns:
+#        - str: Message SID if successful.
+#        """
+#     try:
+#         # Create Twilio client
+#         client = Client(account_sid, auth_token)
+#
+#         # Send SMS
+#         message = client.messages.create(
+#             body=message_body,
+#             from_=twilio_number,
+#             to=recipient_number
+#         )
+#
+#         print(f"✅ SMS sent successfully! Message SID: {message.sid}")
+#         return message.sid
+#
+#     except Exception as e:
+#         print(f"❌ Failed to send SMS: {e}")
+#         return None
+#
 
 # Main function
 def main():
-    stocks = ["AAPL", "TSLA", "NVDA", "META", "SPY", "GOOG", "AMZN", "BABA", "V", "JNJ", "HD", "JPM", "PG", "MA", "BTC", "MCD", "NFLX", "BAC", "KO", 'TJX', "T"]
-    # stocks = [
-    #     "AAPL", "MSFT", "AMZN", "GOOGL", "META", "NVDA", "BRK.A", "TSLA", "JNJ", "V",
-    #     "UNH", "WMT", "JPM", "MA", "PG", "XOM", "HD", "BAC", "KO", "PFE",
-    #     "DIS", "CSCO", "PEP", "VZ", "ADBE", "NFLX", "INTC", "CMCSA", "MRK", "T",
-    #     "ABT", "NKE", "CRM", "ORCL", "CVX", "MCD", "WFC", "ACN", "DHR", "MDT",
-    #     "COST", "LLY", "AVGO", "QCOM", "TXN", "NEE", "HON", "PM", "BMY", "IBM",
-    #     "SBUX", "AMGN", "MMM", "LIN", "GE", "LOW", "UPS", "MS", "UNP", "RTX",
-    #     "INTU", "BA", "CAT", "GS", "BLK", "AXP", "SPGI", "PLD", "MDLZ", "SYK",
-    #     "ISRG", "TMO", "AMT", "BKNG", "DE", "ADP", "GILD", "NOW", "MO", "FIS",
-    #     "CI", "CB", "USB", "SCHW", "ZTS", "C", "LMT", "BDX", "DUK", "SO",
-    #     "TJX", "PNC", "MMC", "CCI", "APD", "EL", "ADI", "ITW", "NSC", "EW"
-    # ]
-    # Step 1: Fetch stock data
+    stocks = [
+        "KO", "AAPL", "MSFT", "AMZN", "GOOGL", "META", "NVDA", "TSLA", "JNJ", "V",
+        "UNH", "WMT", "JPM", "MA", "PG", "XOM", "HD", "BAC", "KO", "PFE",
+        "DIS", "CSCO", "PEP", "VZ", "ADBE", "NFLX", "INTC", "CMCSA", "MRK", "T",
+        "ABT", "NKE", "CRM", "ORCL", "CVX", "MCD", "WFC", "ACN", "DHR", "MDT",
+        "COST", "LLY", "AVGO", "QCOM", "TXN", "NEE", "HON", "PM", "BMY", "IBM",
+        "SBUX", "AMGN", "MMM", "LIN", "GE", "LOW", "UPS", "MS", "UNP", "RTX",
+        "INTU", "BA", "CAT", "GS", "BLK", "AXP", "SPGI", "PLD", "MDLZ", "SYK",
+        "ISRG", "TMO", "AMT", "BKNG", "DE", "ADP", "GILD", "NOW", "MO", "FIS",
+        "CI", "CB", "USB", "SCHW", "ZTS", "C", "LMT", "BDX", "DUK", "SO",
+        "TJX", "PNC", "MMC", "CCI", "APD", "EL", "ADI", "ITW", "NSC", "EW", "BTC", "ETH", "SOL",
+    ]
+    # 1: Fetch stock data
     df = fetch_stock_data(stocks)
 
-    # Step 2: Process stocks (apply indicators & generate signals)
+    # 2: Process stocks (apply indicators & generate signals)
     processed_data = process_stocks(df, stocks)
 
-    # Step 3: Prepare data and train ML model
+    # 3: Prepare data and train ML model
     all_data = pd.concat(processed_data.values(), keys=processed_data.keys())
     model, X = train_ml_model(all_data)
 
-    # Step 4: Predict trades
+    # 4: Predict trades
     trade_signals = predict_trades(model, X, stocks, processed_data)
 
-    # Step 5: Display results
+    # 5: Results
     for stock, decision in trade_signals.items():
         print(decision)
 
