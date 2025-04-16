@@ -28,9 +28,11 @@ class BinanceUSClient:
         balance = self.client.get_asset_balance(asset='USDT')
         return float(balance['free']) if balance else 0.0
 
-    def get_order_book_depth(self, symbol="BTCUSDT"):
+    def get_order_book_stats(self, symbol="BTCUSDT"):
         depth = self.client.get_order_book(symbol=symbol)
-        return len(depth['bids']), len(depth['asks'])
+        bid_volume = sum(float(bid[1]) for bid in depth['bids'])
+        ask_volume = sum(float(ask[1]) for ask in depth['asks'])
+        return bid_volume, ask_volume
 
     def get_historical_data(self, symbol="BTCUSDT", interval=Client.KLINE_INTERVAL_5MINUTE, lookback="3 day ago UTC"):
         klines = self.client.get_historical_klines(symbol, interval, lookback)
@@ -49,7 +51,7 @@ def log(message):
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     full_message = f"[{timestamp}] {message}"
     print(full_message)
-    with open("onE_log_v3.txt", "a") as file:
+    with open("onE_log_v4.txt", "a") as file:
         file.write(full_message + "\n")
 
 # ----------------------- Position Manager -----------------------
@@ -86,8 +88,8 @@ class PositionManager:
         self.stop_loss = None
         self.quantity = None
 
-# ----------------------- Features & Label -----------------------
-def calculate_indicators(df):
+# ----------------------- Indicators & Features -----------------------
+def calculate_indicators(df, bid_volume, ask_volume):
     df['SMA_20'] = ta.trend.sma_indicator(df['close'], window=20)
     df['SMA_50'] = ta.trend.sma_indicator(df['close'], window=50)
     df['RSI'] = ta.momentum.RSIIndicator(df['close']).rsi()
@@ -100,9 +102,11 @@ def calculate_indicators(df):
     df['Stoch_K'] = stoch.stoch()
     df['Stoch_D'] = stoch.stoch_signal()
     df['VWAP'] = (df['volume'] * (df['high'] + df['low'] + df['close']) / 3).cumsum() / df['volume'].cumsum()
-    df['Volume_Spike'] = df['volume'] > df['volume'].rolling(window=10).mean() * 1.5
+    df['OBI'] = (bid_volume - ask_volume) / (bid_volume + ask_volume)
+    df['volume_zscore'] = (df['volume'] - df['volume'].rolling(20).mean()) / df['volume'].rolling(20).std()
     return df.dropna()
 
+# ----------------------- Target Labeling -----------------------
 def add_target(df, horizon=3):
     df['future_return'] = df['close'].shift(-horizon) / df['close'] - 1
     df['target'] = 0
@@ -111,10 +115,11 @@ def add_target(df, horizon=3):
     return df.dropna()
 
 # ----------------------- Model Training -----------------------
-def train_or_load_model(df, model_path='model3.pkl'):
+def train_or_load_model(df, model_path='model4.pkl'):
+    features = ['SMA_20', 'SMA_50', 'RSI', 'MACD', 'BB_upper', 'BB_lower', 'ATR', 'Stoch_K', 'Stoch_D', 'VWAP', 'OBI', 'volume_zscore']
     if os.path.exists(model_path):
         return joblib.load(model_path)
-    X = df[['SMA_20', 'SMA_50', 'RSI', 'MACD', 'BB_upper', 'BB_lower', 'ATR', 'Stoch_K', 'Stoch_D', 'VWAP']]
+    X = df[features]
     y = df['target']
     model = RandomForestClassifier(n_estimators=100, random_state=42)
     model.fit(X, y)
@@ -123,10 +128,10 @@ def train_or_load_model(df, model_path='model3.pkl'):
 
 # ----------------------- Prediction -----------------------
 def predict(df, model):
-    latest = df.iloc[-1]
-    X = latest[['SMA_20', 'SMA_50', 'RSI', 'MACD', 'BB_upper', 'BB_lower', 'ATR', 'Stoch_K', 'Stoch_D', 'VWAP']].values.reshape(1, -1)
-    proba = model.predict_proba(X)[0]
-    pred = model.predict(X)[0]
+    features = ['SMA_20', 'SMA_50', 'RSI', 'MACD', 'BB_upper', 'BB_lower', 'ATR', 'Stoch_K', 'Stoch_D', 'VWAP', 'OBI', 'volume_zscore']
+    latest = df.iloc[-1][features].values.reshape(1, -1)
+    proba = model.predict_proba(latest)[0]
+    pred = model.predict(latest)[0]
     return pred, max(proba)
 
 # ----------------------- Trading Logic -----------------------
@@ -153,11 +158,11 @@ def main():
 
     live_price = client.get_price()
     usdt_balance = client.get_usdt_balance()
-    bid_depth, ask_depth = client.get_order_book_depth()
-    log(f"💰 USDT Balance: ${usdt_balance:.2f} | Order Book - Bids: {bid_depth}, Asks: {ask_depth}")
+    bid_volume, ask_volume = client.get_order_book_stats()
+    log(f"💰 USDT Balance: ${usdt_balance:.2f} | OBI: {(bid_volume - ask_volume) / (bid_volume + ask_volume):.4f}")
 
     df = client.get_historical_data()
-    df = calculate_indicators(df)
+    df = calculate_indicators(df, bid_volume, ask_volume)
     df = add_target(df)
     model = train_or_load_model(df)
 
