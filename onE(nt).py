@@ -210,7 +210,7 @@ def run_forever():
     while True:
         main()
         log("⏱ Waiting 5 minutes...")
-        time.sleep(300)
+        time.sleep(60)
 
 if __name__ == "__main__":
     run_forever()
